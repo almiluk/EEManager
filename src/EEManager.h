@@ -1,14 +1,14 @@
 /*
     Менеджер EEPROM - библиотека для уменьшения износа памяти
     Документация: 
-    GitHub: https://github.com/GyverLibs/EEManager
+    GitHub: https://github.com/almiluk/EEManager
     Возможности:
     - Отложенная запись (обновление) по таймеру
     - Работает на базе стандартной EEPROM.h
     - Встроенный механизм ключа первой записи
 
     AlexGyver, alex@alexgyver.ru
-    https://alexgyver.ru/
+    Aleksandr Lukianov, almiluk@gmial.com
     MIT License
 
     Версии:
