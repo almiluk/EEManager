@@ -23,98 +23,90 @@
 #define _EEManager_h
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <CRC32.h>
 
-class EEManager {
+enum MemStatusCode {
+    ok,
+    created,
+    failed
+};
+
+class EEMemManager;
+class MemPart;
+class Variable;
+
+class EEMemManager {
 public:
-    // передать данные любого типа, опционально таймаут обновления в мс
-    template <typename T> EEManager(T &data, uint16_t tout = 5000) {
-        _data = (uint8_t*) &data;
-        _size = sizeof(T);
-        _tout = tout;
+    bool init();
+    MemPart GetMemPart(char* name);
+
+    bool tick();
+private:
+    uint16_t lastAddr = 0;
+    const uint16_t startAddr = 0;
+
+    MemPart* partitionsPart;
+};
+
+class VariableInfo {
+protected:
+    uint32_t        nameHash;
+    uint16_t        addr;
+    uint16_t        dataSize;
+    uint16_t        nextVarAddr = 0;
+};
+
+class Variable : VariableInfo {
+public:
+    Variable() {};
+
+    template <typename T>
+    Variable(uint16_t addr, T* data, const char* name, bool write = false, uint16_t timeout = 5000){
+        this->data = (uint8_t*)data;
+        dataSize = sizeof(T);
+        setTimeout(timeout);
+        nameHash = CRC32::calculate(name, strlen(name));
+        init(write);
     }
-    
-    // сменить таймаут
-    void setTimeout(uint16_t tout = 5000) {
-        _tout = tout;
-    }
-    
-    // начать работу, прочитать данные в переменную. Принимает адрес начала хранения даты и ключ
-    uint8_t begin(uint8_t addr, uint8_t key) {        
-        _addr = addr;
-        if (_addr + _size + 1 > (uint16_t)EEPROM.length()) return 2;  // не хватит места
-        _ready = 1;
-        if (EEPROM.read(_addr + _size) != key) {            // ключ не совпал
-            EEPROM.write(_addr + _size, key);               // пишем ключ
-            updateNow();                                    // пишем стандартные значения
-            return 1;
-        }
-        for (uint16_t i = 0; i < _size; i++) _data[i] = EEPROM.read(_addr + i);
-        return 0;
-    }
-    
-    // обновить данные в еепром сейчас
-    void updateNow() {
-        if (_ready) {            
-#if defined(ESP8266) || defined(ESP32)
-            for (uint16_t i = 0; i < _size; i++) EEPROM.write(_addr + i, _data[i]);
-            EEPROM.commit();
-#else
-            for (uint16_t i = 0; i < _size; i++) EEPROM.update(_addr + i, _data[i]);
-#endif
-        }
-    }
-    
-    // отложить обновление и сбросить таймер
-    void update() {
-        _tmr = millis();
-        _update = 1;
-    }
-    
-    // тикер обновления
-    bool tick() {
-        if (_update && millis() - _tmr >= _tout) {
-            updateNow();
-            _update = 0;
-            return 1;
-        } return 0;
-    }
-    
-    // сбросить ключ запуска. При перезагрузке (или вызове begin) запишутся стандартные данные 
-    void reset() {
-        EEPROM.write(_addr + _size, EEPROM.read(_addr + _size) + 1);   // меняем ключ на +1, при перезапуске будет дефолт
-    }
-    
-    // получить размер данных
-    uint16_t dataSize() {
-        return _size;
-    }
-    
-    // получить размер всего блока (данные + ключ)
-    uint16_t blockSize() {
-        return _size + 1;
-    }
-    
-    // получить адрес первого байта в блоке
-    uint16_t startAddr() {
-        return _addr;
-    }
-    
-    // получить адрес последнего байта в блоке (включая ключ)
-    uint16_t endAddr() {
-        return _addr + _size;
-    }
-    
-    // получить первый свободный адрес для следующего блока
-    uint16_t nextAddr() {
-        return _addr + _size + 1;
-    }
+
+    MemStatusCode init(bool write);
+
+    void updateNow();
+    void updateMetaInfo();
+    void update();
+    bool tick();
+    void reset();
+    uint32_t getHameHash() { return nameHash; };
+    uint16_t getDataSize();
+    uint16_t getStartAddr();
+    uint16_t getEndAddr();
+    uint16_t getNextAddr();
+    uint16_t getNextVarAddr() { return nextVarAddr; };
+    void setTimeout(uint16_t timeout = 5000);
 
 private:
-    uint8_t* _data;
-    uint16_t _size, _addr;
-    bool _ready = 0, _update = 0;
-    uint32_t _tmr = 0;
-    uint16_t _tout;
+    uint16_t    dataAddr() { return addr + offset; };
+    void        writeBytes(uint16_t addr, uint8_t* data, uint16_t size);
+
+    uint8_t*        data = nullptr;
+    const uint16_t  offset = sizeof(VariableInfo);
+    bool            need_update = 0;      // _update from EEManager class   
+    uint32_t        last_write_time = 0;  // _tmr from EEManager class
+    uint16_t        upd_timeout;          // _tout from EEManager class
+};
+
+class MemPart {
+public:
+    template <typename T> Variable getVar(char* name, T* data);
+    //template <typename T> MemStatusCode getVal(char* name, T* data);
+
+    uint16_t getFirstVarAddr() { return firstVarAddr; } ;
+    void setFirstVarAddr(uint16_t addr) { firstVarAddr = addr; };
+
+    bool tick();
+
+private:
+    uint16_t    firstVarAddr = 0;
 };
 
 #endif
