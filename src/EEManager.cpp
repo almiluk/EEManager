@@ -4,12 +4,17 @@
 
 
 // EEMemManager
-// 
+//
+uint16_t EEMemManager::lastAddr;
+
+//
 bool EEMemManager::init() {
+    lastAddr = 0;
+
     // TODO: save just last address (with check val), but not MemPart
 
     partitionsPart = new MemPart();
-    Variable testPartVar(startAddr, &partitionsPart, "\0");
+    //Variable testPartVar(startAddr, &partitionsPart, "\0");
 
     /*if (partitionsPart.getNameHash() != CRC32::calculate("\0", 1)) {
         // very first run
@@ -39,29 +44,36 @@ MemPart EEMemManager::GetMemPart(char* name) {
 
 // MemPart
 //
-template <typename T>
+/*template <typename T>
 Variable MemPart::getVar(char* name, T* data) {
     uint32_t name_hash = CRC32::calculate(name, strlen(name));
-    Variable var;
-    uint16_t addr = firstVarAddr;
-    while (addr != 0) {
-        Variable varVar(firstVarAddr, &var, "\0");
-        if (var.nameHash == name_hash){
-            return var;
-        }
-
-        addr = var.nextVarAddr();
+    Variable var(firstVarAddr, data, name);
+    if (firstVarAddr != 0) {
+        do {
+            if (var.nameHash == name_hash) {
+                Serial.print("found: ");
+                Serial.println(var.getStartAddr());
+                return var;
+            }
+            var = Variable(var.getNextVarAddr(), data, name);
+        } while (var.getNextVarAddr() != 0);   
     }
-
-    // TODO: create new var
+    
+    var = EEMemManager::writeNewVar(name, data);
+    if (firstVarAddr != 0) {
+        lastVar.setNextVarAddr(var.getStartAddr());
+        lastVar.updateMetaInfo();
+    } else {
+        firstVarAddr = var.getStartAddr();
+    }
+    lastVar = var;
     return var;
-}
-
+}*/
 
 // Variable
 //
-MemStatusCode Variable::init(bool write){
-    if (dataAddr() + dataSize > (uint16_t)EEPROM.length()) return MemStatusCode::failed;  // не хватит места
+/*MemStatusCode Variable::init(bool write){
+    if (getDataAddr() + dataSize > (uint16_t)EEPROM.length()) return MemStatusCode::failed;  // не хватит места
 
     if (write) {
         updateMetaInfo();
@@ -73,7 +85,7 @@ MemStatusCode Variable::init(bool write){
     EEPROM.get(addr, var);
     for (uint16_t i = 0; i < dataSize; i++) data[i] = EEPROM.read(dataAddr() + i);
     return MemStatusCode::ok;
-}
+}*/
 
 // set update timeout
 void Variable::setTimeout(uint16_t timeout) {
@@ -82,7 +94,7 @@ void Variable::setTimeout(uint16_t timeout) {
 
 // write data from RAM to EEPROM
 void Variable::updateNow() {
-    writeBytes(dataAddr(), data, dataSize);
+    writeBytes(getDataAddr(), data, dataSize);
 }
 
 //
@@ -106,9 +118,16 @@ bool Variable::tick() {
     return false;
 }
 
-// get size of stored data
-uint16_t Variable::getDataSize() {
-    return dataSize;
+bool Variable::operator==(const Variable& other) {
+    return dataSize == other.dataSize
+            && !memcmp(data, other.data, dataSize)
+            && nameHash == other.nameHash
+            && nextVarAddr == other.nextVarAddr
+            && addr == other.addr;
+}
+
+bool Variable::operator!=(const Variable& other) {
+    return !(*this == other);
 }
 
 // get start EEPROM address of stored data
@@ -118,12 +137,12 @@ uint16_t Variable::getStartAddr() {
 
 // get last EEPROM address of stored data
 uint16_t Variable::getEndAddr() {
-    return dataAddr() + dataSize - 1;
+    return getDataAddr() + dataSize - 1;
 }
 
 // get the next EEPROM address after this variable data
 uint16_t Variable::getNextAddr() {
-    return dataAddr() + dataSize;
+    return getDataAddr() + dataSize;
 }
 
 void Variable::writeBytes(uint16_t addr, uint8_t* data, uint16_t size) {
