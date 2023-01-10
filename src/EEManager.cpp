@@ -43,49 +43,13 @@ MemPart EEMemManager::GetMemPart(char* name) {
 }
 
 // MemPart
-//
-/*template <typename T>
-Variable MemPart::getVar(char* name, T* data) {
-    uint32_t name_hash = CRC32::calculate(name, strlen(name));
-    Variable var(firstVarAddr, data, name);
-    if (firstVarAddr != 0) {
-        do {
-            if (var.nameHash == name_hash) {
-                Serial.print("found: ");
-                Serial.println(var.getStartAddr());
-                return var;
-            }
-            var = Variable(var.getNextVarAddr(), data, name);
-        } while (var.getNextVarAddr() != 0);   
-    }
-    
-    var = EEMemManager::writeNewVar(name, data);
-    if (firstVarAddr != 0) {
-        lastVar.setNextVarAddr(var.getStartAddr());
-        lastVar.updateMetaInfo();
-    } else {
-        firstVarAddr = var.getStartAddr();
-    }
-    lastVar = var;
-    return var;
-}*/
 
 // Variable
 //
-/*MemStatusCode Variable::init(bool write){
-    if (getDataAddr() + dataSize > (uint16_t)EEPROM.length()) return MemStatusCode::failed;  // не хватит места
-
-    if (write) {
-        updateMetaInfo();
-        updateNow();
-        return MemStatusCode::created;
-    }
-
-    VariableInfo var;
-    EEPROM.get(addr, var);
-    for (uint16_t i = 0; i < dataSize; i++) data[i] = EEPROM.read(dataAddr() + i);
-    return MemStatusCode::ok;
-}*/
+Variable::Variable(const char* name, uint16_t timeout = 5000) {
+    setTimeout(timeout);
+    nameHash = CRC32::calculate(name, strlen(name));
+}
 
 // set update timeout
 void Variable::setTimeout(uint16_t timeout) {
@@ -156,4 +120,30 @@ void Variable::writeBytes(uint16_t addr, uint8_t* data, uint16_t size) {
             EEPROM.update(addr + i, data[i]);
         }
     #endif
+}
+
+MemStatusCode Variable::linkToEeprom(bool write) {
+    if (getDataAddr() + dataSize > (uint16_t)EEPROM.length()) {
+        return MemStatusCode::failed;  // not enough space in EEPROM
+    }
+
+    if (write) {
+        updateMetaInfo();
+        updateNow();
+        return MemStatusCode::created;
+    }
+
+    VariableInfo var;
+    EEPROM.get(addr, var);
+    nameHash = var.getHameHash();
+    nextVarAddr = var.getNextVarAddr();
+    // TODO: check if it == sizeof(T)
+    if (var.getDataSize() != dataSize) {
+        return MemStatusCode::failed;
+    }
+    dataSize = var.getDataSize();
+    for (uint16_t i = 0; i < dataSize; i++) {
+        this->data[i] = EEPROM.read(getDataAddr() + i);
+    }
+    return MemStatusCode::ok;
 }

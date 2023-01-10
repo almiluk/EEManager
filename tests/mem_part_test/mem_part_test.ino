@@ -1,4 +1,5 @@
 // For arduino only, not for ESP
+#define DEBUG_EEPROM
 
 #include <EEManager.h>
 #include <EEPROM.h>

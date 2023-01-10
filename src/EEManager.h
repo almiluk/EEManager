@@ -42,21 +42,16 @@ public:
     uint16_t getDataSize() { return dataSize; };
     uint16_t getNextVarAddr() { return nextVarAddr; };
 protected:
-    uint32_t        nameHash = 0;
-    uint16_t        dataSize = 0;
-    uint16_t        nextVarAddr = 0;
+    uint32_t nameHash = 0;
+    uint16_t dataSize = 0;
+    uint16_t nextVarAddr = 0;
 };
 
 
 // TODO: add checks data != nullptr (before init() call or if init failed)
 class Variable : public VariableInfo {
 public:
-    Variable() {};
-
-    Variable(const char* name, uint16_t timeout = 5000){
-        setTimeout(timeout);
-        nameHash = CRC32::calculate(name, strlen(name));
-    }
+    Variable(const char* name, uint16_t timeout = 5000);
 
     template <typename T>
     MemStatusCode init(uint16_t addr, T* data, bool write = false) {
@@ -64,54 +59,36 @@ public:
         dataSize = sizeof(T);
         this->addr = addr;
 
-        if (getDataAddr() + dataSize > (uint16_t)EEPROM.length()) {
-            return MemStatusCode::failed;  // not enough space in EEPROM
-        }
-
-        if (write) {
-            updateMetaInfo();
-            updateNow();
-            return MemStatusCode::created;
-        }
-
-        VariableInfo var;
-        EEPROM.get(addr, var);
-        nameHash = var.getHameHash();
-        nextVarAddr = var.getNextVarAddr();
-        // TODO: check if it == sizeof(T)
-        if (var.getDataSize() != sizeof(T)) {
-            return MemStatusCode::failed;
-        }
-        dataSize = var.getDataSize();
-        for (uint16_t i = 0; i < dataSize; i++) {
-            this->data[i] = EEPROM.read(getDataAddr() + i);
-        }
-        return MemStatusCode::ok;
+        linkToEeprom(write);
     }
 
     void updateNow();
     void updateMetaInfo();
     void update();
     bool tick();
-    void reset();
-    uint16_t getStartAddr();
-    uint16_t getEndAddr();
-    uint16_t getNextAddr();
     void setTimeout(uint16_t timeout = 5000);
-    uint16_t getDataAddr() { return addr + offset; };
 
     bool operator==(const Variable& other);
     bool operator!=(const Variable& other);
 
+#ifndef DEBUG_EEPROM
 private:
-    void        writeBytes(uint16_t addr, uint8_t* data, uint16_t size);
+#endif
+    uint16_t getStartAddr();
+    uint16_t getEndAddr();
+    uint16_t getNextAddr();
 
-    uint16_t        addr = 0;
-    uint8_t*        data = nullptr;
+private:
+    uint16_t        getDataAddr() { return addr + offset; };
+    void            writeBytes(uint16_t addr, uint8_t* data, uint16_t size);
+    MemStatusCode   linkToEeprom(bool write);
+
+    uint16_t    addr = 0;
+    uint8_t*    data = nullptr;
+    bool        need_update = 0;        // _update from EEManager class
+    uint32_t    last_write_time = 0;    // _tmr from EEManager class
+    uint16_t    upd_timeout = 5000;     // _tout from EEManager class
     static const uint16_t  offset = sizeof(VariableInfo);
-    bool            need_update = 0;        // _update from EEManager class   
-    uint32_t        last_write_time = 0;    // _tmr from EEManager class
-    uint16_t        upd_timeout = 5000;     // _tout from EEManager class
 };
 
 class EEMemManager {
@@ -167,7 +144,6 @@ public:
         lastVar = EditableVariable(var);
         return var;
     }
-    //template <typename T> MemStatusCode getVal(char* name, T* data);
 
     bool tick();
 
@@ -175,11 +151,10 @@ private:
     class EditableVariable : public Variable {
     public:
         EditableVariable(const Variable& var) : Variable(var) {};
-        EditableVariable() {};
         void setNextVarAddr(uint16_t next_var_addr) { nextVarAddr = next_var_addr; } ;
     };
 
-    EditableVariable lastVar;
+    EditableVariable lastVar = EditableVariable(Variable("fake"));
 };
 
 #endif
