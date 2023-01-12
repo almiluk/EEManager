@@ -34,41 +34,41 @@ Most of the logic from the original EEManager class is here.
 ``` C++
 class Variable {
     uint32_t    nameHash;
-    uint8_t*    data = nullptr;
-    uint16_t    size, addr;
-    bool        need_update = 0;      // _update from EEManager class   
-    uint32_t    last_write_time = 0;  // _tmr from EEManager class
-    uint16_t    upd_timeout;          // _tout from EEManager class
-    uint16_t    nextVarAddr = 0;
+    uint16_t    dataSize;       // size from EEManager class
+    uint16_t    nextVarAddr;
+
+    uint8_t*    data;
+    uint16_t    addr;
+    bool        needUpdate;     // _update from EEManager class   
+    uint32_t    lastWriteTime;  // _tmr from EEManager class
+    uint16_t    updTimeout;     // _tout from EEManager class
 };
 ```
 
 3. Memory partition
 ``` C++
 class MemPart {
-    uint32_t    nameHash;
     uint16_t    firstVarAddr;
-    uint16_t    nextMemPartAddr = 0;
 
-    Variable getVar(char* name);
-    template <typename T> MemStatusCode getVal(char* name, T* data);
+    Variable    lastVar;
+
+    template <typename T> 
+    Variable getVar(char* name, T* data);
 };
 ```
 
 4. EEManager
 ``` C++
 class EEMemManager {
-    uint16_t lastAddr = 0;
-
-    // The address of the first memory partition is always 0
-    bool init();
+    uint16_t lastAddr;
+    static const uint16_t startAddr = 0;
+    
     MemPart GetMemPart(char* name);
-    uint16_t addMemPart(char* name);
 };
 ```
 
 ## TODO
 - [ ] Move unsafe methods from MemPart and Variable to some classes inherited from them inside EEMemManager.
-- [ ] Save only nessary part of Variable (name, addres, nextVarAddress). Collapse on try to get variable using local variable of wrong size + unsecure => add guard bytes?!
+- [X] Save only nessary part of Variable (name, addres, nextVarAddess). Collapse on try to get variable using local variable of wrong size + unsecure => add guard bytes?!
 - [ ] Add MU for EEPROM data for many instanses of Variable with same addr.
 - [ ] Store all used variables in RAM, return pointer to one instance for same names and udapte all by MemPart.update() => ~MU, user don't have to use Variable (only local variables linked to EEPROM and MemPart.update()). Problem: update can be applied after local variable left its vision area.
