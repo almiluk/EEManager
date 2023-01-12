@@ -46,14 +46,14 @@ MemPart EEMemManager::GetMemPart(char* name) {
 
 // Variable
 //
-Variable::Variable(const char* name, uint16_t timeout = 5000) {
+Variable::Variable(const char* name, uint16_t timeout) {
     setTimeout(timeout);
     nameHash = CRC32::calculate(name, strlen(name));
 }
 
 // set update timeout
 void Variable::setTimeout(uint16_t timeout) {
-    upd_timeout = timeout;
+    updTimeout = timeout;
 };
 
 // write data from RAM to EEPROM
@@ -69,14 +69,14 @@ void Variable::updateMetaInfo(){
 
 // schedule an update
 void Variable::update() {
-    last_write_time = millis();
-    need_update = true;
+    lastWriteTime = millis();
+    needUpdate = true;
 }
 
 bool Variable::tick() {
-    if (need_update && millis() - last_write_time >= upd_timeout) {
+    if (needUpdate && millis() - lastWriteTime >= updTimeout) {
         updateNow();
-        need_update = false;
+        needUpdate = false;
         return true;
     } 
     return false;

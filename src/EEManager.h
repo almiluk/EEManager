@@ -31,11 +31,6 @@ enum MemStatusCode {
     failed
 };
 
-class EEMemManager;
-class MemPart;
-class Variable;
-
-
 class VariableInfo {
 public: 
     uint32_t getHameHash() { return nameHash; };
@@ -85,11 +80,13 @@ private:
 
     uint16_t    addr = 0;
     uint8_t*    data = nullptr;
-    bool        need_update = 0;        // _update from EEManager class
-    uint32_t    last_write_time = 0;    // _tmr from EEManager class
-    uint16_t    upd_timeout = 5000;     // _tout from EEManager class
+    bool        needUpdate = 0;        // _update from EEManager class
+    uint32_t    lastWriteTime = 0;    // _tmr from EEManager class
+    uint16_t    updTimeout = 5000;     // _tout from EEManager class
     static const uint16_t  offset = sizeof(VariableInfo);
 };
+
+class MemPart;
 
 class EEMemManager {
 private:
