@@ -66,9 +66,6 @@ public:
     bool operator==(const Variable& other);
     bool operator!=(const Variable& other);
 
-#ifndef DEBUG_EEPROM
-private:
-#endif
     uint16_t getStartAddr();
     uint16_t getEndAddr();
     uint16_t getNextAddr();
@@ -80,9 +77,9 @@ private:
 
     uint16_t    addr = 0;
     uint8_t*    data = nullptr;
-    bool        needUpdate = 0;        // _update from EEManager class
-    uint32_t    lastWriteTime = 0;    // _tmr from EEManager class
-    uint16_t    updTimeout = 5000;     // _tout from EEManager class
+    bool        needUpdate = 0;     // _update from EEManager class
+    uint32_t    lastWriteTime = 0;  // _tmr from EEManager class
+    uint16_t    updTimeout = 5000;  // _tout from EEManager class
     static const uint16_t  offset = sizeof(VariableInfo);
 };
 
@@ -91,19 +88,23 @@ class MemPart;
 class EEMemManager {
 private:
     static uint16_t lastAddr;
+    static Variable lastAddrVar;
     static const uint16_t startAddr = 0;
 
-    static MemPart* partitionsPart;
+    static MemPart metaMemPart;
 
 public:
     static bool init();
     static MemPart GetMemPart(char* name);
+    // TODO: change to getLastAddr(uint16_t new_data_size); and move Variable creating to MemPart.getVar()
     template <typename T>
     static Variable writeNewVar(char* name, T* data) {
         Variable var(name);
         // TODO: check init result code
         var.init(lastAddr + 1, data, true);
         lastAddr = var.getEndAddr();
+        // write new last address to EEPROM
+        lastAddrVar.updateNow();
         return var;
     };
 
@@ -112,12 +113,19 @@ public:
 
 
 class MemPartInfo {
+public:
+    MemPartInfo(uint16_t addr) { firstVarAddr = addr; };
+    MemPartInfo() {};
+
 protected:
     uint16_t firstVarAddr = 0;
 };
 
 class MemPart : public MemPartInfo {
 public:
+    MemPart(uint16_t addr) : MemPartInfo(addr) {};
+    MemPart() {};
+
     template <typename T> 
     Variable getVar(char* name, T* data) {
         uint32_t name_hash = CRC32::calculate(name, strlen(name));

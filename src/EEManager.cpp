@@ -1,45 +1,40 @@
-#include "EEManager.h"
+#define CHECK_VALUE 0xABCD
 
+#include "EEManager.h"
 #include <CRC32.h>
 
 
 // EEMemManager
-//
-uint16_t EEMemManager::lastAddr;
+// sizeof(uint16_t) - size of check value
+uint16_t EEMemManager::lastAddr = startAddr + sizeof(uint16_t) - 1;
+Variable EEMemManager::lastAddrVar = Variable("last_addr");
 
 //
 bool EEMemManager::init() {
-    lastAddr = 0;
+    // FIXME
+    uint16_t check_val;
+    uint16_t last_addr_var_addr = lastAddr; // default value of lasrAddr => always the same 
+    // first run
+    if(EEPROM.get(startAddr, check_val) != CHECK_VALUE) {
+        lastAddrVar.init(last_addr_var_addr, &lastAddr, true);
+        EEPROM.put(startAddr, (uint16_t)CHECK_VALUE);
+    } else {
+        lastAddrVar.init(last_addr_var_addr, &lastAddr);
+    }
 
-    // TODO: save just last address (with check val), but not MemPart
-
-    partitionsPart = new MemPart();
-    //Variable testPartVar(startAddr, &partitionsPart, "\0");
-
-    /*if (partitionsPart.getNameHash() != CRC32::calculate("\0", 1)) {
-        // very first run
-        partitionsPart.setName("\0");
-        partitionsPart.setFirstVarAddr(0);
-        testPartVar.updateNow();
-
-        lastAddr = sizeof(MemPart) - 1;
-    }*/
+    metaMemPart = MemPart(last_addr_var_addr);
 }
 
 //
 MemPart EEMemManager::GetMemPart(char* name) {
-    uint32_t nameHash = CRC32::calculate(name, strlen(name));
-    
-    MemPart mem_part = *partitionsPart;
-    /*while (mem_part.getNextMemPartAddr() != 0) {
-        if (mem_part.getNameHash() == nameHash) {
-            return mem_part;
-        } else {
-            Variable testPartVar(mem_part.getNextMemPartAddr(), &mem_part, "\0");
-        }
-    }*/
+    MemPart mem_part;
+    Variable mem_part_var = metaMemPart.getVar(name, &mem_part);
 
-    // TODO: create new
+    // add fictitious variable to determine firstVarAddr and write it to EEPROM
+    uint8_t fictitious_system_value;
+    mem_part.getVar("fictitious_system_value", &fictitious_system_value);
+    mem_part_var.updateNow();
+    return mem_part;
 }
 
 // MemPart
