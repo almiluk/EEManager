@@ -127,7 +127,8 @@ public:
     MemPart() {};
 
     template <typename T> 
-    Variable getVar(char* name, T* data) {
+    Variable getVar(char* name, T* data, bool* created_new_var = nullptr) {
+        if (created_new_var) *created_new_var = false;
         uint32_t name_hash = CRC32::calculate(name, strlen(name));
         Variable var(name);
         uint16_t addr = firstVarAddr;
@@ -139,6 +140,7 @@ public:
             addr = var.getNextVarAddr();
         }
         
+        if (created_new_var) *created_new_var = true;
         var = EEMemManager::writeNewVar(name, data);
         if (firstVarAddr != 0) {
             lastVar.setNextVarAddr(var.getStartAddr());
