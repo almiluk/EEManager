@@ -5,18 +5,21 @@
 
 
 // EEMemManager
-// sizeof(uint16_t) - size of check value
+// sizeof(uint16_t) - size of the check value
 uint16_t EEMemManager::lastAddr = startAddr + sizeof(uint16_t) - 1;
 Variable EEMemManager::lastAddrVar = Variable("last_addr");
+MemPart EEMemManager::metaMemPart;
 
 //
 bool EEMemManager::init() {
     // FIXME
     uint16_t check_val;
-    uint16_t last_addr_var_addr = lastAddr; // default value of lasrAddr => always the same 
-    // first run
+    uint16_t last_addr_var_addr = lastAddr + 1; // default value of lasrAddr => always the same
+    // the first run
     if(EEPROM.get(startAddr, check_val) != CHECK_VALUE) {
-        lastAddrVar.init(last_addr_var_addr, &lastAddr, true);
+        // TODO: clear epprom ?!
+        //lastAddrVar.init(last_addr_var_addr, &lastAddr, true);
+        lastAddrVar = writeNewVar("last_addr", &lastAddr);
         EEPROM.put(startAddr, (uint16_t)CHECK_VALUE);
     } else {
         lastAddrVar.init(last_addr_var_addr, &lastAddr);
@@ -27,13 +30,23 @@ bool EEMemManager::init() {
 
 //
 MemPart EEMemManager::GetMemPart(char* name) {
+    MemPartInfo mem_part_info;
+    bool is_new_mem_part;
+    Variable mem_part_var = metaMemPart.getVar(name, &mem_part_info, &is_new_mem_part);
     MemPart mem_part;
-    Variable mem_part_var = metaMemPart.getVar(name, &mem_part);
 
-    // add fictitious variable to determine firstVarAddr and write it to EEPROM
-    uint8_t fictitious_system_value;
-    mem_part.getVar("fictitious_system_value", &fictitious_system_value);
-    mem_part_var.updateNow();
+
+    if (is_new_mem_part) {
+        mem_part = MemPart(0);
+        // add fictitious variable to determine firstVarAddr and write it to EEPROM
+        uint8_t fictitious_system_value = 0;
+        mem_part.getVar("fictitious_system_value", &fictitious_system_value);
+        mem_part_info = mem_part;
+        mem_part_var.updateNow();
+    } else {
+        mem_part = MemPart(mem_part_info);
+    }
+
     return mem_part;
 }
 
@@ -57,9 +70,10 @@ void Variable::updateNow() {
 }
 
 //
-void Variable::updateMetaInfo(){
+void Variable::updateMetaInfo() {
     uint8_t *meta_data = (uint8_t*)(VariableInfo*)this;
-    writeBytes(addr, meta_data, sizeof(VariableInfo));
+    //writeBytes(addr, meta_data, sizeof(VariableInfo));
+    EEPROM.put(addr, *(VariableInfo*)this);
 }
 
 // schedule an update

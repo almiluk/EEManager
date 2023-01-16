@@ -52,9 +52,10 @@ public:
     MemStatusCode init(uint16_t addr, T* data, bool write = false) {
         this->data = (uint8_t*)data;
         dataSize = sizeof(T);
-        this->addr = addr;
-
-        linkToEeprom(write);
+        this->addr = addr;        
+        nextVarAddr = 0;
+        
+        return linkToEeprom(write);
     }
 
     void updateNow();
@@ -124,6 +125,7 @@ protected:
 class MemPart : public MemPartInfo {
 public:
     MemPart(uint16_t addr) : MemPartInfo(addr) {};
+    MemPart(const MemPartInfo& mem_part_info) : MemPartInfo(mem_part_info) {};
     MemPart() {};
 
     template <typename T> 
@@ -132,23 +134,26 @@ public:
         uint32_t name_hash = CRC32::calculate(name, strlen(name));
         Variable var(name);
         uint16_t addr = firstVarAddr;
+        // TODO: separate reading of metadata and data
+        T data_copy = *data;
         while (addr != 0) {
-            var.init(addr, data);
+            var.init(addr, &data_copy);
             if (var.getHameHash() == name_hash) {
+                var.init(addr, data);
                 return var;
             }
             addr = var.getNextVarAddr();
         }
         
+        EditableVariable last_var = EditableVariable(var);
         if (created_new_var) *created_new_var = true;
         var = EEMemManager::writeNewVar(name, data);
         if (firstVarAddr != 0) {
-            lastVar.setNextVarAddr(var.getStartAddr());
-            lastVar.updateMetaInfo();
+            last_var.setNextVarAddr(var.getStartAddr());
+            last_var.updateMetaInfo();
         } else {
             firstVarAddr = var.getStartAddr();
         }
-        lastVar = EditableVariable(var);
         return var;
     }
 
@@ -160,8 +165,6 @@ private:
         EditableVariable(const Variable& var) : Variable(var) {};
         void setNextVarAddr(uint16_t next_var_addr) { nextVarAddr = next_var_addr; } ;
     };
-
-    EditableVariable lastVar = EditableVariable(Variable("fake"));
 };
 
 #endif
