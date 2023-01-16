@@ -15,19 +15,26 @@ int ok_cnt = 0, err_cnt = 0;
 bool assert(bool val);
 
 void setup() {
-    Variable var("MyVar");
-    var.init(0, &data, true);
-    Variable var2("MyVar");
     Serial.begin(115200);
-    var2.init(0, &data2);
+
+    Variable var("MyVar");
+    var.init(0, &data);
+    Serial.println("Try to reboot the bord once if the next test is failed");
+    assert(data.text[0] == 'b');
+    MemStatusCode code = var.init(0, &data2, true);
+    assert(data2.text[0] == 'H');
+    Variable var2("MyVar");
+    var2.init(0, &data);
     
     assert(var == var2);
 
-    data.text[0]++;
+    data2.text[0] = 'b';
     var.updateNow();
-    var2.init(0, &data2);
+    data.text[0] = 'c';
+    var2.init(0, &data);
 
     assert(var == var2);
+    print_var(var);
 }
 
 void loop() {

@@ -14,7 +14,7 @@ struct datatype2 {
     uint8_t b = 100;
 };
 
-MemPart memPart;
+MemPart memPart(2);
 
 void print_var(Variable var);
 
@@ -27,6 +27,16 @@ void setup() {
     strcpy(data1.text, "Hello!");
 
     Serial.begin(115200);
+
+    uint16_t load_num = 1;
+    Variable load_num_var = memPart.getVar("load_num", &load_num);
+    Serial.print("Load #");
+    Serial.println(load_num);
+    load_num++;
+    load_num_var.updateNow();
+    print_var(load_num_var);
+
+
     Serial.println("[Test started]");
     
     Serial.println("\nTest 1");
@@ -40,11 +50,18 @@ void setup() {
 
     Serial.println("\nTest 3");
     Variable var4 = memPart.getVar("2", &data3);
-    assert(var4.getStartAddr() == var.getNextAddr() + 1 == var.getNextVarAddr());
-    
+    var = memPart.getVar("1", &data1); // update var metainfo
+    assert(var4.getStartAddr() == var.getNextAddr() && var4.getStartAddr() == var.getNextVarAddr());
+
     Serial.println("\nTest 4");
     Variable var5 = memPart.getVar("2", &data4);
     assert(var5 == var4);
+
+    Serial.print("data3.a = ");
+    Serial.println(data3.a);
+    data3.a++;
+    var4.updateNow();
+
     Serial.println("[Test ended]");
     Serial.print(ok_cnt);
     Serial.print('/');
