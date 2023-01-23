@@ -16,7 +16,7 @@ struct datatype2 {
 
 MemPart memPart(2);
 
-void print_var(Variable var);
+void print_var(EEPROMVar var);
 
 int ok_cnt = 0, err_cnt = 0;
 bool assert(bool val);
@@ -29,7 +29,7 @@ void setup() {
     Serial.begin(115200);
 
     uint16_t load_num = 1;
-    Variable load_num_var = memPart.getVar("load_num", &load_num);
+    EEPROMVar load_num_var = memPart.getVar("load_num", &load_num);
     Serial.print("Load #");
     Serial.println(load_num);
     load_num++;
@@ -40,21 +40,21 @@ void setup() {
     Serial.println("[Test started]");
     
     Serial.println("\nTest 1");
-    Variable var = memPart.getVar("1", &data1);
-    Variable var2 = memPart.getVar("1", &data2);
+    EEPROMVar var = memPart.getVar("1", &data1);
+    EEPROMVar var2 = memPart.getVar("1", &data2);
     assert(var == var2);
 
     Serial.println("\nTest 2");
-    Variable var3 = memPart.getVar("1", &data3);
+    EEPROMVar var3 = memPart.getVar("1", &data3);
     assert(var3 != var && var3.getStartAddr() == var.getStartAddr());
 
     Serial.println("\nTest 3");
-    Variable var4 = memPart.getVar("2", &data3);
+    EEPROMVar var4 = memPart.getVar("2", &data3);
     var = memPart.getVar("1", &data1); // update var metainfo
     assert(var4.getStartAddr() == var.getNextAddr() && var4.getStartAddr() == var.getNextVarAddr());
 
     Serial.println("\nTest 4");
-    Variable var5 = memPart.getVar("2", &data4);
+    EEPROMVar var5 = memPart.getVar("2", &data4);
     assert(var5 == var4);
 
     Serial.print("data3.a = ");
@@ -72,7 +72,7 @@ void loop() {
 
 }
 
-void print_var(Variable var) {
+void print_var(EEPROMVar var) {
     Serial.println("Var info:");
     Serial.println(var.getHameHash());
     Serial.println(var.getStartAddr());

@@ -1,3 +1,4 @@
+#define DEBUG_EEPROM
 #include <EEManager.h>
 
 
@@ -15,13 +16,13 @@ void setup() {
 
     bool created;
     int loads_num = 1;
-    Variable loads_num_var = part1.getVar("loads_num", &loads_num, &created);
+    EEPROMVar loads_num_var = part1.getVar("loads_num", &loads_num, &created);
     Serial.print("Load #");
     Serial.println(loads_num);
     print_var(loads_num_var);
 
     int next_load_num = 2;
-    Variable next_load_num_var = part1.getVar("next_load_num", &next_load_num, &created);
+    EEPROMVar next_load_num_var = part1.getVar("next_load_num", &next_load_num, &created);
     Serial.print("Next load #");
     Serial.println(next_load_num); 
     print_var(next_load_num_var);
@@ -29,25 +30,25 @@ void setup() {
     assert(loads_num + 1 == next_load_num);
 
     int x3 = 3;
-    Variable x3_var = part1.getVar("x3", &x3);
+    EEPROMVar x3_var = part1.getVar("x3", &x3);
     Serial.print("x3 ");
     Serial.println(x3); 
     assert(loads_num + 2 == x3);
 
     int x4 = 4;
-    Variable x4_var = part2.getVar("x4", &x4);
+    EEPROMVar x4_var = part2.getVar("x4", &x4);
     Serial.print("x4 ");
     Serial.println(x4); 
     assert(loads_num + 3 == x4);
 
     int x5 = 5;
-    Variable x5_var = part2.getVar("x5", &x5);
+    EEPROMVar x5_var = part2.getVar("x5", &x5);
     Serial.print("x5 ");
     Serial.println(x5); 
     assert(loads_num + 4 == x5);
 
     int x6 = 6;
-    Variable x6_var = part3.getVar("x6", &x6);
+    EEPROMVar x6_var = part3.getVar("x6", &x6);
     Serial.print("x6 ");
     Serial.println(x6); 
     assert(loads_num + 5 == x6);
@@ -70,7 +71,7 @@ void loop() {
 
 }
 
-void print_var(Variable var) {
+void print_var(EEPROMVar var) {
     Serial.println("Var info:");
     Serial.println(var.getHameHash());
     Serial.println(var.getStartAddr());

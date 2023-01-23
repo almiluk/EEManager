@@ -1,170 +1,67 @@
 /*
-    Менеджер EEPROM - библиотека для уменьшения износа памяти
-    Документация: 
+    EEPROM manager - The library for easier work with EEPROM 
+        and reducing its wear.
     GitHub: https://github.com/almiluk/EEManager
-    Возможности:
-    - Отложенная запись (обновление) по таймеру
-    - Работает на базе стандартной EEPROM.h
-    - Встроенный механизм ключа первой записи
-
-    AlexGyver, alex@alexgyver.ru
     Aleksandr Lukianov, almiluk@gmial.com
     MIT License
 
-    Версии:
-    v1.0 - релиз
-    v1.1 - изменены коды возврата begin
-    v1.2 - добавлена nextAddr()
-    v1.2.1 - поддержка esp32
-    v1.2.2 - пофиксил варнинг
+    Original library:
+    GitHub: https://github.com/GyverLibs/EEManager
+    https://alexgyver.ru/
+    AlexGyver, alex@alexgyver.ru
 */
 
 #ifndef _EEManager_h
 #define _EEManager_h
+
+#ifdef DEBUG_EEPROM
+    #define DEBUG_PRINT(value) Serial.print(value)
+    #define DEBUG_PRINTLN(value) Serial.println(value)
+#else
+    #define DEBUG_PRINT(value)
+    #define DEBUG_PRINTLN(value)
+#endif
+
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <CRC32.h>
 
-enum MemStatusCode {
-    ok,
-    created,
-    failed
-};
+#include "MemPart.h"
 
-class VariableInfo {
-public: 
-    uint32_t getHameHash() { return nameHash; };
-    uint16_t getDataSize() { return dataSize; };
-    uint16_t getNextVarAddr() { return nextVarAddr; };
-protected:
-    uint32_t nameHash = 0;
-    uint16_t dataSize = 0;
-    uint16_t nextVarAddr = 0;
-};
-
-
-// TODO: add checks data != nullptr (before init() call or if init failed)
-class Variable : public VariableInfo {
-public:
-    Variable(const char* name, uint16_t timeout = 5000);
-
-    template <typename T>
-    MemStatusCode init(uint16_t addr, T* data, bool write = false) {
-        this->data = (uint8_t*)data;
-        dataSize = sizeof(T);
-        this->addr = addr;        
-        nextVarAddr = 0;
-        
-        return linkToEeprom(write);
-    }
-
-    void updateNow();
-    void updateMetaInfo();
-    void update();
-    bool tick();
-    void setTimeout(uint16_t timeout = 5000);
-
-    bool operator==(const Variable& other);
-    bool operator!=(const Variable& other);
-
-    uint16_t getStartAddr();
-    uint16_t getEndAddr();
-    uint16_t getNextAddr();
-
-private:
-    uint16_t        getDataAddr() { return addr + offset; };
-    void            writeBytes(uint16_t addr, uint8_t* data, uint16_t size);
-    MemStatusCode   linkToEeprom(bool write);
-
-    uint16_t    addr = 0;
-    uint8_t*    data = nullptr;
-    bool        needUpdate = 0;     // _update from EEManager class
-    uint32_t    lastWriteTime = 0;  // _tmr from EEManager class
-    uint16_t    updTimeout = 5000;  // _tout from EEManager class
-    static const uint16_t  offset = sizeof(VariableInfo);
-};
-
-class MemPart;
-
+/** EEPROM managing class.*/
 class EEMemManager {
-private:
-    static uint16_t lastAddr;
-    static Variable lastAddrVar;
-    static const uint16_t startAddr = 0;
-
-    static MemPart metaMemPart;
-
 public:
+    /** Initialize manager.
+     *  Read information about stored data from EEPROM 
+     *  or write that information if it's the first run.
+    */
     static bool init();
+    
+    /** Find or create an EEPROM partition with given name.
+     *  In case a new partition was created the information about that
+     *  partition will be written to EEPROM automatically.
+     * 
+     *  @param name The name of the searching partition.
+     *  @return Found or created EEPROM partition.
+    */
     static MemPart GetMemPart(char* name);
-    // TODO: change to getLastAddr(uint16_t new_data_size); and move Variable creating to MemPart.getVar()
-    template <typename T>
-    static Variable writeNewVar(char* name, T* data) {
-        Variable var(name);
-        // TODO: check init result code
-        var.init(lastAddr + 1, data, true);
-        lastAddr = var.getEndAddr();
-        // write new last address to EEPROM
-        lastAddrVar.updateNow();
-        return var;
-    };
 
-    static bool tick();
-};
+    /** A SYSTEM METHOD.
+     *  Get the address for storing new data and increase the lastAddr value by the size of new data.
+     * 
+     *  @param new_data_size The size of the new data.
+     *  @return start The EEPROM address for storing new data.
+    */
+    static uint16_t getAddrForNewData(uint16_t new_data_size);
 
-
-class MemPartInfo {
-public:
-    MemPartInfo(uint16_t addr) { firstVarAddr = addr; };
-    MemPartInfo() {};
-
-protected:
-    uint16_t firstVarAddr = 0;
-};
-
-class MemPart : public MemPartInfo {
-public:
-    MemPart(uint16_t addr) : MemPartInfo(addr) {};
-    MemPart(const MemPartInfo& mem_part_info) : MemPartInfo(mem_part_info) {};
-    MemPart() {};
-
-    template <typename T> 
-    Variable getVar(char* name, T* data, bool* created_new_var = nullptr) {
-        if (created_new_var) *created_new_var = false;
-        uint32_t name_hash = CRC32::calculate(name, strlen(name));
-        Variable var(name);
-        uint16_t addr = firstVarAddr;
-        // TODO: separate reading of metadata and data
-        T data_copy = *data;
-        while (addr != 0) {
-            var.init(addr, &data_copy);
-            if (var.getHameHash() == name_hash) {
-                var.init(addr, data);
-                return var;
-            }
-            addr = var.getNextVarAddr();
-        }
-        
-        EditableVariable last_var = EditableVariable(var);
-        if (created_new_var) *created_new_var = true;
-        var = EEMemManager::writeNewVar(name, data);
-        if (firstVarAddr != 0) {
-            last_var.setNextVarAddr(var.getStartAddr());
-            last_var.updateMetaInfo();
-        } else {
-            firstVarAddr = var.getStartAddr();
-        }
-        return var;
-    }
-
-    bool tick();
+    //static bool tick();
 
 private:
-    class EditableVariable : public Variable {
-    public:
-        EditableVariable(const Variable& var) : Variable(var) {};
-        void setNextVarAddr(uint16_t next_var_addr) { nextVarAddr = next_var_addr; } ;
-    };
+    static uint16_t lastAddr;       /**< The biggest used EEPROM address*/
+    static EEPROMVar lastAddrVar;   /**< The EEPROM variable storing lastAddr value*/
+    static MemPart metaMemPart;     /**< The EEPROM partition storing system data*/
+
+    static const uint16_t startAddr = 0;    /**< The initial EEPROM address for managing data*/
 };
 
 #endif
