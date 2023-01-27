@@ -1,4 +1,7 @@
 # EEManager
+The greatly expanded version of the original library for easier work with EEPROM and reducing its wear.  
+It is a part of the university graduating work. English readme will be added soon.
+
 Менеджер EEPROM - библиотека для уменьшения износа памяти
 - Отложенная запись (обновление) по таймеру
 - Работает на базе стандартной EEPROM.h
